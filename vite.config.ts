@@ -1,5 +1,7 @@
 import vinext from "vinext";
 import { defineConfig } from "vite";
+import { nitro } from "nitro/vite";
+import tailwindcss from "@tailwindcss/vite";
 import hostingConfig from "./.openai/hosting.json";
 import { readExecutionProfile } from "./scripts/execution-profile.mjs";
 import { sites } from "./build/sites-vite-plugin";
@@ -48,6 +50,7 @@ export default defineConfig(async () => {
   process.env.MINIFLARE_REGISTRY_PATH ??= ".wrangler/registry";
 
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.
+  const isVercel = process.env.VERCEL === "1";
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
@@ -56,13 +59,16 @@ export default defineConfig(async () => {
       ...(isCodexSeatbeltSandbox ? { watch: { useFsEvents: false, usePolling: true } } : {}),
     },
     plugins: [
+      tailwindcss(),
       vinext(),
       sites({ mockAuth: !managedLinux }),
-      cloudflare({
-        viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
-        inspectorPort: false,
-        config: localBindingConfig,
-      }),
+      ...(isVercel
+        ? [nitro()]
+        : [cloudflare({
+            viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
+            inspectorPort: false,
+            config: localBindingConfig,
+          })]),
     ],
   };
 });

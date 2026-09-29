@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { env } from "cloudflare:workers";
 
 type Cycle = { id: number; cycleNumber: number; startDay: string };
 type Assignment = { firstPrincipleId: number; secondPrincipleId: number };
+
+async function getDatabase(): Promise<D1Database | undefined> {
+  try {
+    const moduleName = `cloudflare:${"workers"}`;
+    const { env } = await import(/* @vite-ignore */ moduleName);
+    return env.DB;
+  } catch {
+    return undefined;
+  }
+}
 
 function validDay(value: string | null): value is string {
   return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
@@ -56,7 +65,7 @@ export async function GET(request: NextRequest) {
   if (!validDay(requestedDay)) return NextResponse.json({ error: "날짜를 확인해 주세요." }, { status: 400 });
 
   try {
-    const db = env.DB;
+    const db = await getDatabase();
     if (!db) throw new Error("DB binding unavailable");
     let cycle = await db.prepare("SELECT id, cycle_number AS cycleNumber, start_day AS startDay FROM coaching_cycles WHERE user_id = ? ORDER BY cycle_number DESC LIMIT 1")
       .bind(userId).first<Cycle>();
@@ -107,7 +116,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "메모를 확인해 주세요." }, { status: 400 });
   }
   try {
-    const db = env.DB;
+    const db = await getDatabase();
     if (!db) throw new Error("DB binding unavailable");
     const current = await db.prepare("SELECT id, cycle_number AS cycleNumber, start_day AS startDay FROM coaching_cycles WHERE user_id = ? ORDER BY cycle_number DESC LIMIT 1")
       .bind(userId).first<Cycle>();
