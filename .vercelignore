@@ -1,0 +1,4 @@
+.vercel/output
+.sites-runtime
+dist
+node_modules
